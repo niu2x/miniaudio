@@ -78020,6 +78020,8 @@ MA_API ma_result ma_engine_init(const ma_engine_config* pConfig, ma_engine* pEng
 
             result = ma_resource_manager_init(&resourceManagerConfig, pEngine->pResourceManager);
             if (result != MA_SUCCESS) {
+                ma_free(pEngine->pResourceManager, &pEngine->allocationCallbacks);
+                pEngine->pResourceManager = NULL;
                 goto on_error_3;
             }
 
@@ -78048,6 +78050,13 @@ MA_API ma_result ma_engine_init(const ma_engine_config* pConfig, ma_engine* pEng
 
 #if !defined(MA_NO_DEVICE_IO)
 on_error_4:
+    #if !defined(MA_NO_RESOURCE_MANAGER)
+    {
+        if (pEngine->ownsResourceManager) {
+            ma_resource_manager_uninit(pEngine->pResourceManager);
+        }
+    }
+    #endif
 #endif
 #if !defined(MA_NO_RESOURCE_MANAGER)
 on_error_3:
