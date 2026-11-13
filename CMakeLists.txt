@@ -794,6 +794,12 @@ if(MINIAUDIO_BUILD_TESTS)
     add_miniaudio_test(miniaudio_resource_manager resource_manager/resource_manager.c)
     add_test(NAME miniaudio_resource_manager COMMAND miniaudio_resource_manager)
     set_tests_properties(miniaudio_resource_manager PROPERTIES TIMEOUT 10)
+
+    add_miniaudio_test(miniaudio_maintenance maintenance/maintenance.c)
+    add_test(NAME miniaudio_maintenance COMMAND miniaudio_maintenance
+        ${CMAKE_CURRENT_SOURCE_DIR}/data/16-44100-stereo.flac
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/maintenance/data/xing-id3.mp3)
+    set_tests_properties(miniaudio_maintenance PROPERTIES TIMEOUT 60)
 endif()
 
 # Examples
