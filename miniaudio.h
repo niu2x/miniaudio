@@ -41437,6 +41437,7 @@ static ma_result ma_device_start__opensl(ma_device* pDevice)
 static ma_result ma_device_drain__opensl(ma_device* pDevice, ma_device_type deviceType)
 {
     SLAndroidSimpleBufferQueueItf pBufferQueue;
+    ma_timer drainTimer;
 
     MA_ASSERT(deviceType == ma_device_type_capture || deviceType == ma_device_type_playback);
 
@@ -41448,6 +41449,7 @@ static ma_result ma_device_drain__opensl(ma_device* pDevice, ma_device_type devi
         pDevice->opensl.isDrainingPlayback = MA_TRUE;
     }
 
+    ma_timer_init(&drainTimer);
     for (;;) {
         SLresult resultSL;
         SLAndroidSimpleBufferQueueState state;
@@ -41459,6 +41461,12 @@ static ma_result ma_device_drain__opensl(ma_device* pDevice, ma_device_type devi
         }
 
         if (state.count == 0) {
+            break;
+        }
+
+        /* A stalled device may never consume the remaining buffers. Stop and clear it anyway. */
+        if (ma_timer_get_time_in_seconds(&drainTimer) >= 1.0) {
+            ma_log_post(ma_device_get_log(pDevice), MA_LOG_LEVEL_WARNING, "[OpenSL] Buffer queue drain timed out. Skipping remaining buffers.");
             break;
         }
 
