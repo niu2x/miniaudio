@@ -800,6 +800,11 @@ if(MINIAUDIO_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/data/16-44100-stereo.flac
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/maintenance/data/xing-id3.mp3)
     set_tests_properties(miniaudio_maintenance PROPERTIES TIMEOUT 60)
+
+    add_miniaudio_test(miniaudio_decoder_backports maintenance/decoder_backports.c)
+    add_test(NAME miniaudio_decoder_backports COMMAND miniaudio_decoder_backports
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/maintenance/data/xing-id3.mp3)
+    set_tests_properties(miniaudio_decoder_backports PROPERTIES TIMEOUT 30)
 endif()
 
 # Examples
