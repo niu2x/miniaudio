@@ -12,12 +12,52 @@ bugfix，并选择性同步上游对现存功能的 bugfix。不要直接整体�
 
 维护目标是本地 `niu2x/master`；本地 `master`、`github/master` 和
 `upstream/master` 是不同引用。推送前应明确目的远端和目的分支，不要凭名称推断。
-本轮仅完成本地合入和提交，没有推送。
+截至 2026-11-20，本聊天中的迁移仅完成本地合入和提交，没有执行推送。
 
-## 本轮审查边界与结果
+## 当前跟进状态（2026-11-20）
 
-审查日期为 2026-11-13（Asia/Shanghai）。两条上游分支的完整审查边界单独保存在
-[上游审查检查点](upstream-review-checkpoint.md)，下一轮以该文件为起点。
+master 已审查到 `877ea4a7c2601c7b0f2a44e83dfac42e6470fea6`，没有新增提交。
+dev 已审查到 `65c1fd32a5b89aa821eb4c50af189deacb5b7062`。
+[检查点文件](upstream-review-checkpoint.md) 是下一轮跟进边界的唯一记录，下面的历史
+边界用于理解之前的决定，不应覆盖当前检查点。
+
+本轮以自有 `756e2effbe2a732daad772cf9d7fab70f3e04464` 为基线，按用户授权完成
+`65c1fd32` 的部分迁移。修复提交为 `e6fc43d9641c44e608ea91c6da9d4d7fb0d7178e`，完整上游来源在提交正文的
+`Upstream-commit` 字段中。由于是部分迁移，`git cherry` 仍可能显示上游提交未等价
+合入，必须结合以下范围查重。
+
+| 提交/范围 | 处理决定 |
+| --- | --- |
+| `65c1fd32`：WAV | 已迁移顺序读取、未知/超出实际长度的数据块、元数据读取位置和 seek/tell 错误处理；包含大端 W64 fact 与 24 位 PCM 转换修复。 |
+| `65c1fd32`：FLAC | 已迁移未对齐整数读取的无符号移位修复，消除高位字节触发的 UBSan 错误。 |
+| `65c1fd32`：MP3 | 已迁移 APE 版本/长度/可选头解析、重复 ID3/APE 尾标签处理、零填充/ID3v1 短流识别、临时状态初始化及 ARM64EC SIMD 条件修复。 |
+| `65c1fd32`：排除项 | 未迁移 Lyrics3v2 元数据新功能、stereo header-test hoisting 和 SSE 输出存储优化；缺少这些内容属于主动取舍。 |
+| `9e6360f2`、`c794d523` | 跳过 fs 的 DOS/DJGPP 支持更新；延续之前不整包升级 fs 的决定。 |
+
+自有 OpenSL 停止超时修复 `756e2eff` 保留，本轮没有重新做 Android 实机验证。
+没有改变 miniaudio 版本号，也没有引入 Lyrics3v2 枚举/API。
+
+本轮验证：普通测试 8/8 通过；ASan/UBSan 下 decoder_backports、maintenance、
+resource_manager、conversion、filtering 共 5/5 通过，UBSan 禁止错误恢复；新增测试
+以 C89/C++11 和 warnings-as-errors 编译运行通过。禁用 device I/O、resource manager、
+engine、decoding、WAV、FLAC、MP3，以及同时禁用 device I/O/threading 的 8 种 C89
+语法检查均通过。普通设备测试实际使用 Null 后端。generation 使用 240 秒时限，
+约 61 秒完成。
+
+在迁移前 `756e2eff` 上独立复现了 WAV 顺序读取失败、FLAC 有符号移位 UB、MP3
+短流尾部识别失败和 APE 标签长度错误；迁移后的回归通过。新增用例覆盖 WAV 的
+未知长度、元数据、截断和受限 seek，以及内存/回调两种 MP3 读取方式下的标签组合
+和 PCM/rewind 一致性。测试源码与范围见
+[decoder_backports.c](../tests/maintenance/decoder_backports.c) 和
+[测试说明](../tests/maintenance/README.md#decoder-backports-reviewed-on-2026-11-20)。
+
+ARM64EC 和大端平台未编译或实机运行；本轮对相应改动进行了源码审查。
+24 位 PCM 的运行测试仅覆盖本机字节序，不能当作大端实测。MP3 intensity-stereo
+临时状态修复不代表已穷尽异常码流验证。
+
+## 历史审查与结果（2026-11-13）
+
+审查日期为 2026-11-13（Asia/Shanghai）。该次审查到 master `877ea4a7`、dev `6ec7f057`；下一轮应使用当前检查点。
 
 本轮基线是 `cfb92b4c`。`upstream/master` 没有新增提交；`upstream/dev` 相对
 本轮基线有 14 个尚未包含的提交。逐项筛选后合入了下面 9 个修复，均使用
@@ -51,7 +91,7 @@ bugfix，并选择性同步上游对现存功能的 bugfix。不要直接整体�
 这些跳过的提交已经审查过。除非出现新的需求或证据，不必在下一轮重新作为
 “遗漏修复”处理。上游 master 以后可能包含我们已经从 dev 挑选的补丁，也应查重。
 
-## 已完成的验证及限制
+## 初次迁移的验证及限制（2026-11-13）
 
 本机为 macOS arm64。普通构建启用 warnings-as-errors；conversion、filtering、
 generation、resource_manager、新增 maintenance，以及 C/C++ 设备测试共 7 项通过。
@@ -88,9 +128,9 @@ AAudio 改动涉及设备结构体布局，库和使用方需要一起重新编�
 
    ```sh
    git merge-base --is-ancestor 877ea4a7c2601c7b0f2a44e83dfac42e6470fea6 upstream/master
-   git merge-base --is-ancestor 6ec7f0577a1df9bbefdb5236b649268da7665b58 upstream/dev
+   git merge-base --is-ancestor 65c1fd32a5b89aa821eb4c50af189deacb5b7062 upstream/dev
    git log --reverse --oneline 877ea4a7c2601c7b0f2a44e83dfac42e6470fea6..upstream/master
-   git log --reverse --oneline 6ec7f0577a1df9bbefdb5236b649268da7665b58..upstream/dev
+   git log --reverse --oneline 65c1fd32a5b89aa821eb4c50af189deacb5b7062..upstream/dev
    ```
 
 4. 对候选修复阅读实际补丁及完整调用链，确认触发条件、影响平台、依赖、失败
@@ -133,10 +173,10 @@ ctest --test-dir /private/tmp/miniaudio-maintenance-build --output-on-failure --
 cmake -S . -B /private/tmp/miniaudio-maintenance-asan \
   -DMINIAUDIO_BUILD_TESTS=ON -DMINIAUDIO_WARNINGS_AS_ERRORS=ON \
   -DCMAKE_BUILD_TYPE=Debug \
-  '-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
-  '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer'
+  '-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer' \
+  '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer'
 cmake --build /private/tmp/miniaudio-maintenance-asan \
-  --target miniaudio_maintenance miniaudio_resource_manager miniaudio_conversion miniaudio_filtering -j 4
+  --target miniaudio_decoder_backports miniaudio_maintenance miniaudio_resource_manager miniaudio_conversion miniaudio_filtering -j 4
 ctest --test-dir /private/tmp/miniaudio-maintenance-asan \
-  -R 'maintenance|resource_manager|conversion|filtering' --output-on-failure --timeout 60
+  -R 'decoder_backports|maintenance|resource_manager|conversion|filtering' --output-on-failure --timeout 60
 ```
